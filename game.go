@@ -21,5 +21,5 @@ func main() {
 
 	// setup chi server
 	// curl http://localhost:3000
-	http.ListenAndServe(":3000", gameState.Router)
+	http.ListenAndServe(gameState.Port, gameState.Router)
 }

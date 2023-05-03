@@ -11,8 +11,10 @@ import (
 
 // State is the global state of the server.
 type State struct {
-	db     database.Connection
-	Router *chi.Mux
+	db      database.Connection
+	Router  *chi.Mux
+	BaseURL string
+	Port    string
 }
 
 // NewState creates a new server state.
@@ -50,8 +52,10 @@ func NewState() *State {
 	})
 
 	s := &State{
-		db:     db,
-		Router: r,
+		db:      db,
+		Router:  r,
+		BaseURL: "http://localhost:3000", // TODO: this should be a config
+		Port:    "3000",
 	}
 
 	// setup routes
@@ -64,14 +68,23 @@ func NewState() *State {
 		})
 	})
 
-	// TODO: add more routes
-	// - start game - generate a game id and join code
-	// - join game - use the join code to join a game
-	// - leave game - leave a game
-	// - get game history - user's win loss history
-	// - get game status - get current game status. if thre is a game in progress, return the game id
-	// - get abandoned games - get a list of games that have been abandoned
-	//  - stop an abandoned game - stop a game that has been abandoned
+	r.Route("/game", func(r chi.Router) {
+		// /start add you to the host role
+		r.Get("/start", s.startGame) // GET /game/start
+		// // subroutes for game
+		r.Route("/{gameID}", func(r chi.Router) {
+			r.Get("/join", s.joinGame) // GET /game/123/join
+			// 	r.Get("/leave", s.leaveGame) // GET /game/123/leave
+			// 	// starting = no answer submitted, in progess = asking questions, finished = guest guessed or game stopped
+			// 	r.Get("/status", s.getGameStatus) // GET /game/123/status
+			// 	// only the host can get the summary
+			// 	r.Get("/summary", s.getSummary) // GET /game/123/summary
+			// 	// only the host can stop the game
+			// 	r.Get("/stop", s.stopGame) // GET /game/123/stop
+		})
+		// /abandoned returns all games that have been abandoned without being finished
+		// r.Get("/abandoned", s.getAbandonedGames) // GET /game/abandoned
+	})
 
 	return s
 }
