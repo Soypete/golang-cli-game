@@ -7,6 +7,7 @@ import (
 	"testing"
 
 	"github.com/go-chi/chi"
+	"github.com/soypete/golang-cli-game/database"
 )
 
 type passDB struct{}
@@ -28,17 +29,23 @@ func (db *passDB) CreateGame(username string) (int64, error) {
 func (db *passDB) AddUserToGame(username string, gameID int64) error {
 	return nil
 }
+func (db *passDB) GetGameData(gameID int64) (database.Game, error) {
+	return database.Game{
+		GameID: 321,
+	}, nil
+}
+func (db *passDB) StopGame(gameID int64) error {
+	return nil
+}
 
 type failDB struct{}
 
 func (db *failDB) GetUserData(username string) (string, error) {
 	return "", fmt.Errorf("failed to get username %s from db", username)
 }
-
 func (db *failDB) UpsertUsername(username string) error {
 	return fmt.Errorf("failed to update username %s from db", username)
 }
-
 func (db *failDB) DeleteUsername(username string) error {
 	return fmt.Errorf("failed to delete username %s from db", username)
 }
@@ -47,6 +54,12 @@ func (db *failDB) CreateGame(username string) (int64, error) {
 }
 func (db *failDB) AddUserToGame(username string, gameID int64) error {
 	return fmt.Errorf("failed to add user %s to game %d from db", username, gameID)
+}
+func (db *failDB) GetGameData(gameID int64) (database.Game, error) {
+	return database.Game{}, fmt.Errorf("failed to get game %d from db", gameID)
+}
+func (db *failDB) StopGame(gameID int64) error {
+	return fmt.Errorf("failed to stop game %d from db", gameID)
 }
 
 func setupTestRouter(s State, t *testing.T) *chi.Mux {
@@ -69,11 +82,11 @@ func setupTestRouter(s State, t *testing.T) *chi.Mux {
 			r.Get("/join", s.joinGame) // GET /game/123/join
 			// 	r.Get("/leave", s.leaveGame) // GET /game/123/leave
 			// 	// starting = no answer submitted, in progess = asking questions, finished = guest guessed or game stopped
-			// 	r.Get("/status", s.getGameStatus) // GET /game/123/status
-			// 	// only the host can get the summary
+			r.Get("/status", s.getGameState) // GET /game/123/status
+			// 	// only the host can get thummary
 			// 	r.Get("/summary", s.getSummary) // GET /game/123/summary
 			// 	// only the host can stop the game
-			// 	r.Get("/stop", s.stopGame) // GET /game/123/stop
+			r.Get("/stop", s.stopGame) // GET /game/123/stop
 		})
 		// /abandoned returns all games that have been abandoned without being finished
 		// r.Get("/abandoned", s.getAbandonedGames) // GET /game/abandoned

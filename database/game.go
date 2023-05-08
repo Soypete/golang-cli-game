@@ -7,15 +7,16 @@ import (
 
 // Game represents a game in the database.
 type Game struct {
-	GameID    int64
-	Host      string
-	Players   []string // only 5 players allowed per game
-	Answer    string   // TODO: answer validation should account for capitalization and spelling errors.. maybe use a Levenshtein distance algorithm
-	Questions []Question
-	Guesses   []Guess
-	StartTime time.Time
-	EndTime   time.Time
-	Ended     bool
+	GameID        int64    `db:"id"`
+	Host          string   `db:"host"`
+	Players       []string `db:"players"` // only 5 players allowed per game
+	Answer        string   `db:"answer"`  // TODO: answer validation should account for capitalization and spelling errors.. maybe use a Levenshtein distance algorithm
+	QuestionCount int64
+	Questions     []Question `db:"questions"`
+	Guesses       []Guess    `db:"guesses"`
+	StartTime     time.Time  `db:"start_time"`
+	EndTime       time.Time  `db:"end_time, omitempty""`
+	Ended         bool       `db:"ended"`
 }
 
 // Question represents a question in the database.
@@ -43,11 +44,11 @@ func (c *Client) CreateGame(username string) (int64, error) {
 					VALUES ($1, $1)`
 	results, err := c.db.Exec(query, username)
 	if err != nil {
-		return 0, fmt.Errorf("unable to create game instance", err)
+		return 0, fmt.Errorf("unable to create game instance: %w", err)
 	}
 	gameID, err := results.LastInsertId()
 	if err != nil {
-		return 0, fmt.Errorf("unable to get game id", err)
+		return 0, fmt.Errorf("unable to get game id: %w", err)
 	}
 	return gameID, nil
 }
@@ -61,7 +62,29 @@ func (c *Client) AddUserToGame(username string, gameID int64) error {
 					WHERE game_id = $2`
 	_, err := c.db.Exec(query, username, gameID)
 	if err != nil {
-		return fmt.Errorf("unable to add user to game", err)
+		return fmt.Errorf("unable to add user to game: %w", err)
+	}
+	return nil
+}
+
+// GetGameData returns the game info for the game with the given game id.
+func (c *Client) GetGameData(gameID int64) (Game, error) {
+	query := `SELECT * FROM games WHERE game_id = $1`
+	var game Game
+	err := c.db.QueryRowx(query, gameID).StructScan(&game)
+	if err != nil {
+		return Game{}, fmt.Errorf("unable to get game info: %w", err)
+	}
+	return game, nil
+}
+
+func (c *Client) StopGame(gameID int64) error {
+	query := `UPDATE games
+					SET ended = true, end_time = NOW()
+					WHERE game_id = $1`
+	_, err := c.db.Exec(query, gameID)
+	if err != nil {
+		return fmt.Errorf("unable to stop game: %w", err)
 	}
 	return nil
 }

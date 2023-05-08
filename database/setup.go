@@ -16,6 +16,8 @@ type Connection interface {
 	DeleteUsername(string) error
 	CreateGame(string) (int64, error)
 	AddUserToGame(string, int64) error
+	GetGameData(int64) (Game, error)
+	StopGame(int64) error
 }
 
 // Client is the real database client that satisfies the
@@ -70,7 +72,7 @@ func Setup() *Client {
 
 	CREATE TABLE IF NOT EXISTS games (
 	id SERIAL PRIMARY KEY,
-	HOST VARCHAR(255) NOT NULL,
+	host VARCHAR(255) NOT NULL,
 	players VARCHAR(255)[5] NOT NULL references users(id),
 	answer VARCHAR(255) NOT NULL,
 	questions VARCHAR(255)[] references questions(id) ,
