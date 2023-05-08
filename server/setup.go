@@ -73,14 +73,14 @@ func NewState() *State {
 		r.Get("/start", s.startGame) // GET /game/start
 		// // subroutes for game
 		r.Route("/{gameID}", func(r chi.Router) {
-			r.Get("/join", s.joinGame) // GET /game/123/join
-			// 	r.Get("/leave", s.leaveGame) // GET /game/123/leave
-			// 	// starting = no answer submitted, in progess = asking questions, finished = guest guessed or game stopped
-			// 	r.Get("/status", s.getGameStatus) // GET /game/123/status
+			r.Get("/join", s.joinGame)       // GET /game/123/join?username=
+			r.Get("/status", s.getGameState) // GET /game/123/status
+			r.Get("/play", s.playGame)       // GET /game/123/play?username=&answer=...
+			// r.Get("/turn", s.TakeTurn) // GET /game/123/turn?username=&action=question/answer&question=...&answer=...
 			// 	// only the host can get the summary
 			// 	r.Get("/summary", s.getSummary) // GET /game/123/summary
 			// 	// only the host can stop the game
-			// 	r.Get("/stop", s.stopGame) // GET /game/123/stop
+			r.Get("/stop", s.stopGame) // GET /game/123/stop
 		})
 		// /abandoned returns all games that have been abandoned without being finished
 		// r.Get("/abandoned", s.getAbandonedGames) // GET /game/abandoned
