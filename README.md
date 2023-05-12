@@ -6,7 +6,14 @@ This is a game build for the Go WebServices in 3 weeks [course](https://github.c
 [![codecov](https://codecov.io/gh/soypete/{}/branch/master/graph/badge.svg)](https://codecov.io/gh/soypete/{})
 
 ## How To play
- 1. Add your user
- 2. Start a game
- 3. Invite players
- 4. finish Your game
+
+1.  Add your user
+2.  Start a game
+3.  Invite players
+4.  finish Your game
+
+## Middleware:
+
+* logging
+* userAuthorization
+* metric tracking (status codes)

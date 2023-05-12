@@ -55,6 +55,18 @@ func Setup() *Client {
 		created_at TIMESTAMP NOT NULL DEFAULT NOW()
 	);
 
+	CREATE TABLE IF NOT EXISTS games (
+		id SERIAL PRIMARY KEY,
+		host VARCHAR(255) NOT NULL,
+		players VARCHAR(255)[5],
+		answer VARCHAR(255) NOT NULL,
+		questions VARCHAR(255)[],
+		guesses VARCHAR(255)[],
+		start_time TIMESTAMP NOT NULL DEFAULT NOW(),
+		end_time TIMESTAMP,
+		ended BOOLEAN DEFAULT FALSE
+	);
+
 	CREATE TABLE IF NOT EXISTS questions (
 		id SERIAL PRIMARY KEY,
 		question VARCHAR(255) NOT NULL,
@@ -70,16 +82,6 @@ func Setup() *Client {
 		correct BOOLEAN DEFAULT FALSE
 	);
 
-	CREATE TABLE IF NOT EXISTS games (
-	id SERIAL PRIMARY KEY,
-	host VARCHAR(255) NOT NULL,
-	players VARCHAR(255)[5] NOT NULL references users(id),
-	answer VARCHAR(255) NOT NULL,
-	questions VARCHAR(255)[] references questions(id) ,
-	guesses VARCHAR(255)[] references guesses(id),
-	start_time TIMESTAMP NOT NULL DEFAULT NOW(),
-	end_time TIMESTAMP,
-	ended BOOLEAN DEFAULT FALSE,
 `
 	db.MustExec(tableQuery)
 

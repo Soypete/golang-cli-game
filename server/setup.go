@@ -6,6 +6,7 @@ import (
 
 	"github.com/go-chi/chi"
 	"github.com/go-chi/chi/middleware"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/soypete/golang-cli-game/database"
 )
 
@@ -30,32 +31,24 @@ func NewState() *State {
 
 	// TODO(soypete): investigate middleware to see if we should add any for intro
 	// topics or wait until later
-	// r.Use(middleware.RequestID)
-	// r.Use(middleware.RealIP)
-	// r.Use(middleware.Recoverer)
+	r.Use(middleware.RequestID)
+	r.Use(middleware.RealIP)
+	r.Use(middleware.Recoverer)
+
+	// add pprof
+	r.Mount("/debug", middleware.Profiler())
+	// add prometheus metrics
+	r.Mount("/metrics", promhttp.Handler())
+
 	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Write([]byte("welcome to game server"))
-	})
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
-	})
-	// TODO(soypete): investigate middleware to see if we should add any for intro
-	// topics or wait until later
-	//r.Use(middleware.RequestID)
-	//r.Use(middleware.RealIP)
-	//r.Use(middleware.Recoverer)
-	r.Get("/", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("welcome to game server"))
-	})
-	r.Get("/health", func(w http.ResponseWriter, r *http.Request) {
-		w.Write([]byte("OK"))
 	})
 
 	s := &State{
 		db:      db,
 		Router:  r,
 		BaseURL: "http://localhost:3000", // TODO: this should be a config
-		Port:    "3000",
+		Port:    ":3000",
 	}
 
 	// setup routes
