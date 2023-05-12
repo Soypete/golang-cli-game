@@ -1,6 +1,7 @@
 package server
 
 import (
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -12,14 +13,19 @@ import (
 
 type passDB struct{}
 
+func getAuthHeader() string {
+	encoding := base64.StdEncoding
+	ed := encoding.EncodeToString([]byte("captainnobody1:password"))
+	return fmt.Sprintf("Basic %s", ed)
+}
+
 func (db *passDB) GetUserData(username string) (string, error) {
 	return "captainnobody1", nil
 }
 
-func (db *passDB) UpsertUsername(username string) error {
+func (db *passDB) UpsertUsername(username, password string) error {
 	return nil
 }
-
 func (db *passDB) DeleteUsername(username string) error {
 	return nil
 }
@@ -37,13 +43,16 @@ func (db *passDB) GetGameData(gameID int64) (database.Game, error) {
 func (db *passDB) StopGame(gameID int64) error {
 	return nil
 }
+func (db *passDB) CheckUserValid(string, string) (bool, error) {
+	return true, nil
+}
 
 type failDB struct{}
 
 func (db *failDB) GetUserData(username string) (string, error) {
 	return "", fmt.Errorf("failed to get username %s from db", username)
 }
-func (db *failDB) UpsertUsername(username string) error {
+func (db *failDB) UpsertUsername(username, password string) error {
 	return fmt.Errorf("failed to update username %s from db", username)
 }
 func (db *failDB) DeleteUsername(username string) error {
@@ -60,6 +69,9 @@ func (db *failDB) GetGameData(gameID int64) (database.Game, error) {
 }
 func (db *failDB) StopGame(gameID int64) error {
 	return fmt.Errorf("failed to stop game %d from db", gameID)
+}
+func (db *failDB) CheckUserValid(string, string) (bool, error) {
+	return false, nil
 }
 
 func setupTestRouter(s State, t *testing.T) *chi.Mux {
@@ -96,17 +108,21 @@ func setupTestRouter(s State, t *testing.T) *chi.Mux {
 
 func TestUserEndpoints(t *testing.T) {
 	t.Run("get username: Pass", testPassGetUserName)
-	t.Run("get username: No Username", testFailGetUsernameEmpty)
+	t.Run("get username: No Username", testPassGetUsernameEmpty)
+	// t.Run("get username: No Header", testFailGetUsernameNoHeader)
 	t.Run("get username:Fail", testFailGetUsernameDB)
 	t.Run("update username: Pass", testPassUpdateUser)
 	t.Run("update username: No Username", testFailUpdateUsernameEmpty)
 	t.Run("update username:Fail", testFailUpdateUsernameDB)
 	t.Run("delete username: Pass", testPassDeleteUser)
+	// t.Run("delete username:Fail No Header", testFailDeleteUsernameNoHeader)
 	t.Run("delete username:Fail", testFailDeleteUsernameDB)
 	t.Run("create game: Pass", testPassStartGame)
 	t.Run("create game: Fail", testFailStartGame)
+	t.Run("create game: Fail no header", testFailStartGameNoHeader)
 	t.Run("join game: Pass", testPassJoinGame)
-	t.Run("join game: No Username", testFailJoinNoGameID)
+	t.Run("join game: No gameID", testFailJoinNoGameID)
+	t.Run("join game: No Header", testFailJoinGameNoHeader)
 	t.Run("join game:Fail", testFailJoinGameDB)
 }
 func testPassGetUserName(t *testing.T) {
@@ -116,8 +132,8 @@ func testPassGetUserName(t *testing.T) {
 	sPass.Router = setupTestRouter(sPass, t)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/register/captainnobody1/get", nil)
+	req.Header.Set("Authorization", getAuthHeader())
 	sPass.Router.ServeHTTP(w, req)
-
 	// check status code
 	if status := w.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
@@ -126,17 +142,49 @@ func testPassGetUserName(t *testing.T) {
 }
 
 // test no username
-func testFailGetUsernameEmpty(t *testing.T) {
+func testPassGetUsernameEmpty(t *testing.T) {
+	sPass := State{
+		db: new(passDB),
+	}
+	sPass.Router = setupTestRouter(sPass, t)
+	w := httptest.NewRecorder()
+	reqNoUser := httptest.NewRequest("GET", "/register//get", nil)
+	reqNoUser.Header.Set("Authorization", "Basic Y2FwdGFpbm5vYm9keTE6cGFzc3dvcmQK")
+	sPass.Router.ServeHTTP(w, reqNoUser)
+	if status := w.Code; status != http.StatusOK {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusOK)
+	}
+}
+
+// test not match header
+func testFailGetUsernameNotMatch(t *testing.T) {
 	sFail := State{
 		db: new(failDB),
 	}
 	sFail.Router = setupTestRouter(sFail, t)
 	w := httptest.NewRecorder()
-	reqNoUser := httptest.NewRequest("GET", "/register//get", nil)
+	reqNoUser := httptest.NewRequest("GET", "/register/523/get", nil)
+	reqNoUser.Header.Set("Authorization", "Basic Y2FwdGFpbm5vYm9keTE6cGFzc3dvcmQK")
 	sFail.Router.ServeHTTP(w, reqNoUser)
-	if status := w.Code; status != http.StatusBadRequest {
+	if status := w.Code; status != http.StatusUnauthorized {
 		t.Errorf("handler returned wrong status code: got %v want %v",
-			status, http.StatusBadRequest)
+			status, http.StatusUnauthorized)
+	}
+}
+
+// test no  header
+func testFailGetUsernameNoHeader(t *testing.T) {
+	sFail := State{
+		db: new(failDB),
+	}
+	sFail.Router = setupTestRouter(sFail, t)
+	w := httptest.NewRecorder()
+	reqNoUser := httptest.NewRequest("GET", "/register/captainnobody1/get", nil)
+	sFail.Router.ServeHTTP(w, reqNoUser)
+	if status := w.Code; status != http.StatusUnauthorized {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusUnauthorized)
 	}
 }
 
@@ -148,6 +196,7 @@ func testFailGetUsernameDB(t *testing.T) {
 	sFail.Router = setupTestRouter(sFail, t)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/register/captainnobody1/get", nil)
+	req.Header.Set("Authorization", "Basic Y2FwdGFpbm5vYm9keTE6cGFzc3dvcmQK")
 	sFail.Router.ServeHTTP(w, req)
 
 	// check status code
@@ -196,6 +245,7 @@ func testFailUpdateUsernameDB(t *testing.T) {
 	sFail.Router = setupTestRouter(sFail, t)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/register/captainnobody1/update", nil)
+	req.Header.Set("Authorization", "Basic Y2FwdGFpbm5vYm9keTE6cGFzc3dvcmQK")
 	sFail.Router.ServeHTTP(w, req)
 
 	// check status code
@@ -212,12 +262,30 @@ func testPassDeleteUser(t *testing.T) {
 	sPass.Router = setupTestRouter(sPass, t)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/register/captainnobody1/delete", nil)
+	req.Header.Set("Authorization", "Basic Y2FwdGFpbm5vYm9keTE6cGFzc3dvcmQK")
 	sPass.Router.ServeHTTP(w, req)
 
 	// check status code
 	if status := w.Code; status != http.StatusOK {
 		t.Errorf("handler returned wrong status code: got %v want %v",
 			status, http.StatusOK)
+	}
+}
+
+// test delete user no header
+func testFailDeleteUsernameNoHeader(t *testing.T) {
+	sFail := State{
+		db: new(failDB),
+	}
+	sFail.Router = setupTestRouter(sFail, t)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("DELETE", "/register/captainnobody1/delete", nil)
+	sFail.Router.ServeHTTP(w, req)
+
+	// check status code
+	if status := w.Code; status != http.StatusUnauthorized {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusUnauthorized)
 	}
 }
 
@@ -229,6 +297,7 @@ func testFailDeleteUsernameDB(t *testing.T) {
 	sFail.Router = setupTestRouter(sFail, t)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("DELETE", "/register/captainnobody1/delete", nil)
+	req.Header.Set("Authorization", "Basic Y2FwdGFpbm5vYm9keTE6cGFzc3dvcmQK")
 	sFail.Router.ServeHTTP(w, req)
 
 	// check status code
@@ -245,6 +314,7 @@ func testPassStartGame(t *testing.T) {
 	sPass.Router = setupTestRouter(sPass, t)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/game/start", nil)
+	req.Header.Set("Authorization", "Basic Y2FwdGFpbm5vYm9keTE6cGFzc3dvcmQK")
 	sPass.Router.ServeHTTP(w, req)
 
 	if status := w.Code; status != http.StatusCreated {
@@ -260,6 +330,7 @@ func testFailStartGame(t *testing.T) {
 	sFail.Router = setupTestRouter(sFail, t)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/game/start", nil)
+	req.Header.Set("Authorization", "Basic Y2FwdGFpbm5vYm9keTE6cGFzc3dvcmQK")
 	sFail.Router.ServeHTTP(w, req)
 
 	// check status code
@@ -268,6 +339,23 @@ func testFailStartGame(t *testing.T) {
 			status, http.StatusInternalServerError)
 	}
 }
+
+func testFailStartGameNoHeader(t *testing.T) {
+	sFail := State{
+		db: new(failDB),
+	}
+	sFail.Router = setupTestRouter(sFail, t)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/game/start", nil)
+	sFail.Router.ServeHTTP(w, req)
+
+	// check status code
+	if status := w.Code; status != http.StatusUnauthorized {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusUnauthorized)
+	}
+}
+
 func testPassJoinGame(t *testing.T) {
 	sPass := State{
 		db: new(passDB),
@@ -275,6 +363,7 @@ func testPassJoinGame(t *testing.T) {
 	sPass.Router = setupTestRouter(sPass, t)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/game/1234/join", nil)
+	req.Header.Set("Authorization", "Basic Y2FwdGFpbm5vYm9keTE6cGFzc3dvcmQK")
 	sPass.Router.ServeHTTP(w, req)
 
 	if status := w.Code; status != http.StatusOK {
@@ -291,6 +380,7 @@ func testFailJoinNoGameID(t *testing.T) {
 	sFail.Router = setupTestRouter(sFail, t)
 	w := httptest.NewRecorder()
 	reqNoUser := httptest.NewRequest("GET", "/game//join", nil)
+	reqNoUser.Header.Set("Authorization", "Basic Y2FwdGFpbm5vYm9keTE6cGFzc3dvcmQK")
 	sFail.Router.ServeHTTP(w, reqNoUser)
 	if status := w.Code; status != http.StatusBadRequest {
 		t.Errorf("handler returned wrong status code: got %v want %v",
@@ -298,6 +388,21 @@ func testFailJoinNoGameID(t *testing.T) {
 	}
 }
 
+func testFailJoinGameNoHeader(t *testing.T) {
+	sFail := State{
+		db: new(failDB),
+	}
+	sFail.Router = setupTestRouter(sFail, t)
+	w := httptest.NewRecorder()
+	req := httptest.NewRequest("GET", "/game/1232/join", nil)
+	sFail.Router.ServeHTTP(w, req)
+
+	// check status code
+	if status := w.Code; status != http.StatusUnauthorized {
+		t.Errorf("handler returned wrong status code: got %v want %v",
+			status, http.StatusUnauthorized)
+	}
+}
 func testFailJoinGameDB(t *testing.T) {
 	sFail := State{
 		db: new(failDB),
@@ -305,6 +410,7 @@ func testFailJoinGameDB(t *testing.T) {
 	sFail.Router = setupTestRouter(sFail, t)
 	w := httptest.NewRecorder()
 	req := httptest.NewRequest("GET", "/game/1232/join", nil)
+	req.Header.Set("Authorization", "Basic Y2FwdGFpbm5vYm9keTE6cGFzc3dvcmQK")
 	sFail.Router.ServeHTTP(w, req)
 
 	// check status code
