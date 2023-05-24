@@ -15,7 +15,7 @@ func (c *Client) GetUserData(username string) (string, error) {
 }
 
 // UpsertUsername inserts a new username into the database.
-func (c *Client) UpsertUsername(username string) error {
+func (c *Client) UpsertUsername(username, password string) error {
 	registerUser := `INSERT INTO users (username) VALUES ($1)
 										ON CONFLICT (username) DO NOTHING;`
 	_, err := c.db.Exec(registerUser, username)
@@ -33,4 +33,21 @@ func (c *Client) DeleteUsername(username string) error {
 		return fmt.Errorf("failed to delete user %s: %w", username, err)
 	}
 	return nil
+}
+
+// CheckUserValid checks if the user is valid my checking that it
+// exists in the database and that the password matches.
+func (c *Client) CheckUserValid(username, password string) (bool, error) {
+	query := `SELECT username, password FROM users WHERE username = $1 ;`
+	var user, pass string
+	err := c.db.QueryRow(query, username).Scan(&user, &pass)
+	if err != nil {
+		return false, fmt.Errorf("failed to get user %s: %w", username, err)
+	}
+
+	// having a password check at this level makes using sqlc pointless
+	if password != pass {
+		return false, nil
+	}
+	return true, nil
 }
