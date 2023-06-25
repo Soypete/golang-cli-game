@@ -1,0 +1,41 @@
+name: integration-tests
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  integration-tests:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres
+        ports:
+          - 5432:5432
+        env:
+          POSTGRES_USERNAME: postgres
+          POSTGRES_PASSWORD: postgres
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - uses: actions/checkout@v3
+
+    - name: Set up Go
+      uses: actions/setup-go@v4
+      with:
+        go-version: '>=1.19.0'
+
+    - name: fix checkout
+      run: go mod tidy
+
+    - name: Run test
+      run: CI=true go test ./... -run="TestAuthFlow" 
+      env:
+        DB_USERNAME: postgres
+        DB_PASSWORD: postgres

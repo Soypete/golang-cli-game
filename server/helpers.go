@@ -26,26 +26,29 @@ func usernameFromHeader(w http.ResponseWriter, r *http.Request) (string, error) 
 	if !ok {
 		return "", errors.New("Authorization header must be in the form username:password")
 	}
-	fmt.Println(username)
 	return username, nil
 }
 
 // we want the header to include basic auth - username:password
 // we wnt this method to return the username
 // https://developer.mozilla.org/en-US/docs/Web/HTTP/Authentication
-func (s *State) authMiddleware(w http.ResponseWriter, r *http.Request) {
-	//https://pkg.go.dev/net/http#Request.BasicAuth
-	username, password, ok := r.BasicAuth()
-	if !ok {
-		counter400Code.Add(1)
-		http.Error(w, http.StatusText(http.StatusBadRequest)+", Authorization header must be in the form username:password", http.StatusBadRequest)
-		return
-	}
-	if isValid, err := s.db.CheckUserValid(username, password); err != nil || !isValid {
-		counter400Code.Add(1)
-		http.Error(w, http.StatusText(http.StatusUnauthorized)+", Username or password do not exist", http.StatusUnauthorized)
-		return
-	}
+func (s *State) authMiddlelware(h http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		//https://pkg.go.dev/net/http#Request.BasicAuth
+		username, password, ok := r.BasicAuth()
+		if !ok {
+			counter400Code.Add(1)
+			http.Error(w, http.StatusText(http.StatusBadRequest)+", Authorization header must be in the form username:password", http.StatusBadRequest)
+			return
+		}
+		if isValid, err := s.db.CheckUserValid(username, password); err != nil || !isValid {
+			counter400Code.Add(1)
+			http.Error(w, http.StatusText(http.StatusUnauthorized)+", Username or password do not exist", http.StatusUnauthorized)
+			return
+		}
+
+		h.ServeHTTP(w, r)
+	})
 }
 
 func getAndValidateUsername(w http.ResponseWriter, r *http.Request) (string, error) {
