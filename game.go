@@ -2,13 +2,10 @@
 // we don't know what the game will do yet, but we will start with a simple /register
 // and database to store usernames
 
-// TODO: add to readme with DB example:
-// - https://github.com/jackc/pgx
-// - https://github.com/lib/pq
-// - https://github.com/jmoiron/sqlx
 package main
 
 import (
+	"log"
 	"net/http"
 
 	_ "github.com/lib/pq"
@@ -17,7 +14,10 @@ import (
 
 func main() {
 
-	gameState := server.NewState()
+	gameState, err := server.NewState()
+	if err != nil {
+		log.Fatal(err)
+	}
 
 	// setup chi server
 	// curl http://localhost:3000
