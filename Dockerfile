@@ -1,4 +1,4 @@
-FROM golang:1.18-alpine
+FROM docker.io/golang:1.20-alpine
 
 RUN apk update
 RUN apk add git
@@ -7,9 +7,9 @@ WORKDIR /app
 COPY go.* ./
 RUN go mod download
 
-EXPOSE 8080
+EXPOSE 3000
 
 COPY . ./
-RUN go build -v -o main.go
+RUN go build -v game.go
 
-CMD ["/app/main"]
+CMD ["/app/game"]
