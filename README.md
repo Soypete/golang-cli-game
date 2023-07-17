@@ -4,6 +4,7 @@ This is a game build for the Go WebServices in 3 weeks [course](https://github.c
 
 [![Actions Status](https://github.com/soypete/{}/workflows/build/badge.svg)](https://github.com/soypete/{}/actions/workflows/go.yml)
 [![codecov](https://codecov.io/gh/soypete/{}/branch/master/graph/badge.svg)](https://codecov.io/gh/soypete/{})
+[![wakatime](https://wakatime.com/badge/user/953eeb5a-d347-44af-9d8b-a5b8a918cecf/project/6fc293e6-8201-4f8b-bffe-199a8d88951e.svg)](https://wakatime.com/badge/user/953eeb5a-d347-44af-9d8b-a5b8a918cecf/project/6fc293e6-8201-4f8b-bffe-199a8d88951e)
 
 ## How To play
 
