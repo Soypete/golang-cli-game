@@ -7,7 +7,7 @@ import "fmt"
 // all the user data from the database.
 func (c *Client) GetUserData(username string) (string, error) {
 	var userData string
-	err := c.db.QueryRow("SELECT username FROM users WHERE username = $1;", username).Scan(&userData)
+	err := c.db.QueryRow("SELECT username FROM players WHERE username = $1;", username).Scan(&userData)
 	if err != nil {
 		return "", fmt.Errorf("failed to get username %s from db: %w", username, err)
 	}
@@ -16,9 +16,10 @@ func (c *Client) GetUserData(username string) (string, error) {
 
 // UpsertUsername inserts a new username into the database.
 func (c *Client) UpsertUsername(username, password string) error {
-	registerUser := `INSERT INTO users (username) VALUES ($1)
-										ON CONFLICT (username) DO NOTHING;`
-	_, err := c.db.Exec(registerUser, username)
+	registerUser := `INSERT INTO players (username, password) VALUES ($1, $2)
+										ON CONFLICT (username) 
+										DO UPDATE SET password = $2;`
+	_, err := c.db.Exec(registerUser, username, password)
 	if err != nil {
 		return fmt.Errorf("failed to register user %s: %w", username, err)
 	}
@@ -27,7 +28,7 @@ func (c *Client) UpsertUsername(username, password string) error {
 
 // DeleteUsername deletes a username from the database.
 func (c *Client) DeleteUsername(username string) error {
-	deleteUser := `DELETE FROM users WHERE username = $1;`
+	deleteUser := `DELETE FROM players WHERE username = $1;`
 	_, err := c.db.Exec(deleteUser, username)
 	if err != nil {
 		return fmt.Errorf("failed to delete user %s: %w", username, err)
@@ -38,7 +39,7 @@ func (c *Client) DeleteUsername(username string) error {
 // CheckUserValid checks if the user is valid my checking that it
 // exists in the database and that the password matches.
 func (c *Client) CheckUserValid(username, password string) (bool, error) {
-	query := `SELECT username, password FROM users WHERE username = $1 ;`
+	query := `SELECT username, password FROM players WHERE username = $1 ;`
 	var user, pass string
 	err := c.db.QueryRow(query, username).Scan(&user, &pass)
 	if err != nil {

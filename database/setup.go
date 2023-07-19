@@ -2,7 +2,9 @@ package database
 
 import (
 	"database/sql"
+	"fmt"
 	"net/url"
+	"os"
 
 	"github.com/jmoiron/sqlx"
 )
@@ -35,27 +37,28 @@ func (db Client) GetSqlDB() *sql.DB {
 }
 
 // Setup is a function that returns a new database client.
-// It also creates the users table if it doesn't exist.
+// It also creates the players table if it doesn't exist.
 // The current implementation uses a PostgreSQL database, that is
 // running in a Docker container.
-func Setup() *Client {
+func Setup() (*Client, error) {
 	// connect to db
 	params := url.Values{}
 	params.Set("sslmode", "disable")
-
 	connectionString := url.URL{
 		Scheme:   "postgresql",
-		User:     url.UserPassword("postgres", "postgres"),
-		Host:     "localhost:5431",
+		User:     url.UserPassword(os.Getenv("DB_USERNAME"), os.Getenv("DB_PASSWORD")),
+		Host:     "localhost:5432",
 		Path:     "postgres",
 		RawQuery: params.Encode(),
 	}
+	fmt.Println(connectionString.String())
 	db, err := sqlx.Connect("postgres", connectionString.String())
 	if err != nil {
-		panic(err)
+		return nil, err
 	}
 
-	tableQuery := `CREATE TABLE IF NOT EXISTS users (
+	// todo: games.players should be a foreign key to players.id
+	tableQuery := `CREATE TABLE IF NOT EXISTS players (
 		id SERIAL PRIMARY KEY,
 		username VARCHAR(255) UNIQUE NOT NULL,
 		password VARCHAR(255) NOT NULL,
@@ -65,7 +68,7 @@ func Setup() *Client {
 	CREATE TABLE IF NOT EXISTS games (
 		id SERIAL PRIMARY KEY,
 		host VARCHAR(255) NOT NULL,
-		players VARCHAR(255)[5],
+		players VARCHAR(255)[5], 
 		answer VARCHAR(255) NOT NULL,
 		questions VARCHAR(255)[],
 		guesses VARCHAR(255)[],
@@ -77,22 +80,21 @@ func Setup() *Client {
 	CREATE TABLE IF NOT EXISTS questions (
 		id SERIAL PRIMARY KEY,
 		question VARCHAR(255) NOT NULL,
-		user_id INTEGER NOT NULL references users(id),
+		user_id INTEGER NOT NULL references players(id),
 		game_id INTEGER NOT NULL references games(id)
 	);
 
 	CREATE TABLE IF NOT EXISTS guesses (
 		id SERIAL PRIMARY KEY,
 		guess VARCHAR(255) NOT NULL,
-		user_id INTEGER NOT NULL references users(id),
+		user_id INTEGER NOT NULL references players(id),
 		game_id INTEGER NOT NULL references games(id),
 		correct BOOLEAN DEFAULT FALSE
 	);
-
 `
 	db.MustExec(tableQuery)
 
 	return &Client{
 		db: db,
-	}
+	}, nil
 }

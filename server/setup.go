@@ -29,9 +29,12 @@ var (
 )
 
 // NewState creates a new server state.
-func NewState() *State {
+func NewState() (*State, error) {
 	// create table if not exists
-	db := database.Setup()
+	db, err := database.Setup()
+	if err != nil {
+		return nil, err
+	}
 	// setup chi server
 	//
 	// curl http://localhost:3000
@@ -119,9 +122,9 @@ func NewState() *State {
 
 	})
 
-	return s
+	return s, nil
 }
 
-func (s *State) middlewareHandler(next http.Handler) http.Handler {
-	return http.HandlerFunc(s.authMiddleware)
+func (s *State) middlewareHandler(h http.Handler) func(next http.Handler) http.Handler {
+	s.authMiddleware(h)
 }
